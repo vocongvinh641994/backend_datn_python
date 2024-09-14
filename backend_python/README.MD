@@ -23,4 +23,17 @@ Step 3: Check Docker Status
 docker info
 Step 4: Retry Building the Docker Image
 cd app
+
+
+
+
 docker build -t phobert-fastapi-app .
+mysql -h 10.60.10.241 -u test -p
+Doantotnghiep@123
+
+//Check ip address enabled
+sudo lsof -i -n -P | grep mysqld
+
+
+
+ uvicorn main:app --host 172.21.220.172 --port 8086 --reload
