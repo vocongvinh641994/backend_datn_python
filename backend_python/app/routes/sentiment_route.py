@@ -13,10 +13,17 @@ tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base")
 
 # Define label mapping
 label_mapping = {
-    "LABEL_0": "negative",
-    "LABEL_1": "neutral",
-    "LABEL_2": "positive"
+    "LABEL_0": 0,
+    "LABEL_1": 1,
+    "LABEL_2": 2
 }
+
+label_mapping_title = {
+    "LABEL_0": 'Negative',
+    "LABEL_1": 'Neutral',
+    "LABEL_2": 'Positive'
+}
+
 
 # Keywords
 keywords_application = ["App", "app", "ứng dụng"]
@@ -77,13 +84,29 @@ async def classify_phobert(request: Request):
         result_attitude = await run_pipeline(classifier_attitude, texts_attitude) if texts_attitude else []
 
         # Map the labels to meaningful sentiment values
-        for r in result_application:
-            r['label'] = label_mapping.get(r['label'], "unknown")
-        for r in result_driver:
-            r['label'] = label_mapping.get(r['label'], "unknown")
-        for r in result_attitude:
-            r['label'] = label_mapping.get(r['label'], "unknown")
+        # Iterate over result_application with index
+        for index, r in enumerate(result_application):
+            r['sentiment'] = label_mapping.get(r['label'], "unknown")
+            r['sentiment_title'] = label_mapping_title.get(r['label'], "unknown")
+            r['review_id'] = filtered_reviews_application[index]['id']
+            r['content'] = filtered_reviews_application[index]['content']
+            print(f"Application - Index: {index}, Result: {r}")
 
+        # Iterate over result_driver with index
+        for index, r in enumerate(result_driver):
+            r['sentiment'] = label_mapping.get(r['label'], "unknown")
+            r['sentiment_title'] = label_mapping_title.get(r['label'], "unknown")
+            r['review_id'] = filtered_reviews_driver[index]['id']
+            r['content'] = filtered_reviews_driver[index]['content']
+            print(f"Driver - Index: {index}, Result: {r}")
+
+        # Iterate over result_attitude with index
+        for index, r in enumerate(result_attitude):
+            r['sentiment'] = label_mapping.get(r['label'], "unknown")
+            r['sentiment_title'] = label_mapping_title.get(r['label'], "unknown")
+            r['id'] = filtered_reviews_attitude[index]['id']
+            r['content'] = filtered_reviews_attitude[index]['content']
+            print(f"Attitude - Index: {index}, Result: {r}")
         return {
             "result_application": result_application,
             "result_driver": result_driver,
