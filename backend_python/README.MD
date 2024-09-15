@@ -36,4 +36,4 @@ sudo lsof -i -n -P | grep mysqld
 
 
 
- uvicorn main:app --host 172.21.220.172 --port 8086 --reload
+ uvicorn main:app --host 192.168.1.99 --port 8086 --reload
