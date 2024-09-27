@@ -56,3 +56,5 @@ docker logs reviews-container
 5. docker push vinhvo6494/reviews:latest
 6. docker search vinhvo6494/reviews
 7. docker pull vinhvo6494/reviews:latest
+===========
+docker run -d --name python_reviews -p 8086:8086 vinhvo6494/reviews:latest
