@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request
-from torch.export import export
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
 

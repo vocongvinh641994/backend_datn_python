@@ -1,16 +1,25 @@
+from exceptiongroup import catch
 from fastapi import APIRouter, Request
-from transformers import pipeline, AutoTokenizer
 import torch
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 from fastapi.concurrency import run_in_threadpool
 from .categorized_label_route import categorizedLabel
 
 router = APIRouter()
 
 # Path to your finetuned model directory
-path_finetuned_phobert_attitude = "app/models/phobert_models/phobert_attitude/checkpoint_20240812_epoch1"
-path_finetuned_phobert_driver = "app/models/phobert_models/phobert_driver/checkpoint_20240819_epoch5"
+path_finetuned_phobert_attitude = "app/models/phobert_models/phobert_attitude/2024_09_30_03_08_08/"
+path_finetuned_phobert_driver = "app/models/phobert_models/phobert_driver/2024_09_30_02_50_39"
 path_finetuned_phobert_application = "app/models/phobert_models/phobert_application/checkpoint_20240812_epoch1"
 tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base")
+
+model_attitude = AutoModelForSequenceClassification.from_pretrained(path_finetuned_phobert_attitude)
+tokenizer_attitude = AutoTokenizer.from_pretrained(path_finetuned_phobert_attitude)
+model_attitude.eval()  # Set the model to evaluation mode
+
+model_driver = AutoModelForSequenceClassification.from_pretrained(path_finetuned_phobert_driver)
+tokenizer_driver = AutoTokenizer.from_pretrained(path_finetuned_phobert_driver)
+model_driver.eval()  # Set the model to evaluation mode
 
 # Define label mapping
 label_mapping = {
@@ -20,9 +29,9 @@ label_mapping = {
 }
 
 label_mapping_title = {
-    "LABEL_0": 'Negative',
-    "LABEL_1": 'Neutral',
-    "LABEL_2": 'Positive'
+    0: 'Negative',
+    1: 'Neutral',
+    2: 'Positive'
 }
 
 sentiment_categories = {
@@ -38,6 +47,31 @@ device = 0 if torch.cuda.is_available() else -1
 async def run_pipeline(classifier, texts):
     # Run the pipeline in a thread pool to avoid blocking the event loop
     return await run_in_threadpool(classifier, texts)
+
+async def predict_list(model, reviews):
+    predicts = []
+    try:
+        inputs = tokenizer(
+            reviews,
+            return_tensors="pt",  # Return PyTorch tensors
+            padding=True,  # Pad shorter reviews to the length of the longest
+            truncation=True,  # Truncate longer reviews to max_length
+            max_length=128  # Define the maximum sequence length
+        )
+
+        # Perform inference with the model for multiple reviews
+        with torch.no_grad():
+            outputs = model(**inputs)
+        # Get raw logits and apply sigmoid activation
+        logits = outputs.logits
+        predictions = torch.sigmoid(logits)
+        # Get the index of the largest value
+        max_indices = torch.argmax(predictions, dim=1)
+        predicts = max_indices.tolist()
+
+    except Exception as e:
+        predicts = []
+    return predicts
 
 
 @router.post("/classify_phobert/")
@@ -66,48 +100,45 @@ async def classify_phobert(request: Request):
 
         classifier_application = pipeline("sentiment-analysis", model=path_finetuned_phobert_application,
                                           tokenizer=tokenizer, device=device)
-        classifier_driver = pipeline("sentiment-analysis", model=path_finetuned_phobert_driver, tokenizer=tokenizer,
-                                     device=device)
-        classifier_attitude = pipeline("sentiment-analysis", model=path_finetuned_phobert_attitude, tokenizer=tokenizer,
-                                       device=device)
+        classifier_driver = await predict_list(model_driver, texts_driver)
 
+        classifier_attitude = await predict_list(model_attitude, texts_attitude)
 
         # Perform sentiment analysis asynchronously
         result_application = await run_pipeline(classifier_application, texts_application) if texts_application else []
-        result_driver = await run_pipeline(classifier_driver, texts_driver) if texts_driver else []
-        result_attitude = await run_pipeline(classifier_attitude, texts_attitude) if texts_attitude else []
-
         # Map the labels to meaningful sentiment values
         # Iterate over result_application with index
         for index, r in enumerate(result_application):
-            r['sentiment'] = label_mapping.get(r['label'], "unknown")
-            r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
+            # r['sentiment'] = label_mapping.get(r['label'], "unknown")
+            # r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
             r['reviewId'] = reviews_categorized_label[index]['id']
             r['reviewsCategory'] = sentiment_categories.get('Application')
             r['content'] = reviews_categorized_label[index]['content']
             print(f"Application - Index: {index}, Result: {r}")
-
+        # return {"result": classifier_driver}
         # Iterate over result_driver with index
-        for index, r in enumerate(result_driver):
-            r['sentiment'] = label_mapping.get(r['label'], "unknown")
-            r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
+        for index, r in enumerate(filter_driver):
+            sentiment = classifier_driver[index]
+            r['sentiment'] = sentiment
+            r['sentimentName'] = label_mapping_title.get(sentiment, "unknown")
             r['reviewId'] = reviews_categorized_label[index]['id']
             r['reviewsCategory'] = sentiment_categories.get('Driver')
             r['content'] = reviews_categorized_label[index]['content']
             print(f"Driver - Index: {index}, Result: {r}")
 
         # Iterate over result_attitude with index
-        for index, r in enumerate(result_attitude):
-            r['sentiment'] = label_mapping.get(r['label'], "unknown")
-            r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
+        for index, r in enumerate(filter_attitude):
+            sentiment = classifier_attitude[index]
+            r['sentiment'] = sentiment
+            r['sentimentName'] = label_mapping_title.get(sentiment, "unknown")
             r['reviewId'] = reviews_categorized_label[index]['id']
             r['reviewsCategory'] = sentiment_categories.get('Attitude')
             r['content'] = reviews_categorized_label[index]['content']
             print(f"Attitude - Index: {index}, Result: {r}")
         return {
             "result_application": result_application,
-            "result_driver": result_driver,
-            "result_attitude": result_attitude,
+            "result_driver": filter_driver,
+            "result_attitude": filter_attitude,
             "result_unknown": filter_unknown
         }
 
