@@ -8,9 +8,9 @@ from .categorized_label_route import categorizedLabel
 router = APIRouter()
 
 # Path to your finetuned model directory
-path_finetuned_phobert_attitude = "app/models/phobert_models/phobert_attitude/2024_09_30_03_08_08/"
+path_finetuned_phobert_attitude = "app/models/phobert_models/phobert_attitude/2024_09_30_03_08_08"
 path_finetuned_phobert_driver = "app/models/phobert_models/phobert_driver/2024_09_30_02_50_39"
-path_finetuned_phobert_application = "app/models/phobert_models/phobert_application/checkpoint_20240812_epoch1"
+path_finetuned_phobert_application = "app/models/phobert_models/phobert_application/2024_09_30_03_14_33"
 tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base")
 
 model_attitude = AutoModelForSequenceClassification.from_pretrained(path_finetuned_phobert_attitude)
@@ -20,6 +20,10 @@ model_attitude.eval()  # Set the model to evaluation mode
 model_driver = AutoModelForSequenceClassification.from_pretrained(path_finetuned_phobert_driver)
 tokenizer_driver = AutoTokenizer.from_pretrained(path_finetuned_phobert_driver)
 model_driver.eval()  # Set the model to evaluation mode
+
+model_application = AutoModelForSequenceClassification.from_pretrained(path_finetuned_phobert_application)
+tokenizer_application = AutoTokenizer.from_pretrained(path_finetuned_phobert_application)
+model_application.eval()  # Set the model to evaluation mode
 
 # Define label mapping
 label_mapping = {
@@ -49,7 +53,6 @@ async def run_pipeline(classifier, texts):
     return await run_in_threadpool(classifier, texts)
 
 async def predict_list(model, reviews):
-    predicts = []
     try:
         inputs = tokenizer(
             reviews,
@@ -68,7 +71,8 @@ async def predict_list(model, reviews):
         # Get the index of the largest value
         max_indices = torch.argmax(predictions, dim=1)
         predicts = max_indices.tolist()
-
+        if not predicts:
+            predicts = []
     except Exception as e:
         predicts = []
     return predicts
@@ -97,25 +101,20 @@ async def classify_phobert(request: Request):
         texts_application = [review["content"] for review in filter_application]
         texts_driver = [review["content"] for review in filter_driver]
         texts_attitude = [review["content"] for review in filter_attitude]
-
-        classifier_application = pipeline("sentiment-analysis", model=path_finetuned_phobert_application,
-                                          tokenizer=tokenizer, device=device)
+        # Predict sentiment
+        classifier_application = await predict_list(model_driver, texts_application)
         classifier_driver = await predict_list(model_driver, texts_driver)
-
         classifier_attitude = await predict_list(model_attitude, texts_attitude)
-
-        # Perform sentiment analysis asynchronously
-        result_application = await run_pipeline(classifier_application, texts_application) if texts_application else []
-        # Map the labels to meaningful sentiment values
         # Iterate over result_application with index
-        for index, r in enumerate(result_application):
-            # r['sentiment'] = label_mapping.get(r['label'], "unknown")
-            # r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
+        for index, r in enumerate(filter_application):
+            sentiment = classifier_application[index]
+            r['sentiment'] = sentiment
+            r['sentimentName'] = label_mapping_title.get(sentiment, "unknown")
             r['reviewId'] = reviews_categorized_label[index]['id']
             r['reviewsCategory'] = sentiment_categories.get('Application')
             r['content'] = reviews_categorized_label[index]['content']
             print(f"Application - Index: {index}, Result: {r}")
-        # return {"result": classifier_driver}
+
         # Iterate over result_driver with index
         for index, r in enumerate(filter_driver):
             sentiment = classifier_driver[index]
@@ -136,7 +135,7 @@ async def classify_phobert(request: Request):
             r['content'] = reviews_categorized_label[index]['content']
             print(f"Attitude - Index: {index}, Result: {r}")
         return {
-            "result_application": result_application,
+            "result_application": filter_application,
             "result_driver": filter_driver,
             "result_attitude": filter_attitude,
             "result_unknown": filter_unknown
