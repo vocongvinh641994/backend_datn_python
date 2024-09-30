@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from transformers import pipeline, AutoTokenizer
 import torch
 from fastapi.concurrency import run_in_threadpool
+from .categorized_label_route import categorizedLabel
 
 router = APIRouter()
 
@@ -30,18 +31,6 @@ sentiment_categories = {
     "Driver": 'driver'
 }
 
-
-# Keywords
-keywords_application = ["App", "app", "ứng dụng"]
-keywords_attitude = ["thân thiện", "nhiệt tình", "chu đáo", "lịch sự", "tận tâm", "chuyên nghiệp", "hỗ trợ tốt",
-                     "nhiệt tình hỗ trợ", "vui vẻ", "dễ chịu", "tận tình", "tốt bụng", "thô lỗ", "thiếu chuyên nghiệp",
-                     "thiếu lịch sự", "khó chịu", "kém lịch sự", "bực mình", "quá đáng", "thiếu tôn trọng", "chậm chạp",
-                     "thiếu nhiệt tình", "khó ưa", "lơ là", "không hài lòng", "không chu đáo", "không nhiệt tình",
-                     "không hỗ trợ", "phục vụ kém", "phục vụ tệ", "dịch vụ kém", "dịch vụ tệ", "phản hồi chậm"]
-keywords_driver = ["Tài xế", "Nhân viên", "Thái độ", "Phục vụ", "Chăm sóc khách hàng", "Hỗ trợ", "Thân thiện",
-                   "Nhiệt tình", "Lịch sự", "Chu đáo", "Tận tâm", "Kỹ năng giao tiếp", "Lắng nghe", "Thấu hiểu",
-                   "Giải quyết vấn đề", "Trách nhiệm", "Tôn trọng", "Chuyên nghiệp", "Hợp tác"]
-
 # Determine if GPU is available and set the device accordingly
 device = 0 if torch.cuda.is_available() else -1
 
@@ -63,26 +52,22 @@ async def classify_phobert(request: Request):
             return {"error": "Invalid or missing 'reviews' field. Please provide a list of reviews."}
 
         # Filter reviews based on keywords
-        filtered_reviews_application = reviews
-        # filtered_reviews_application = [review for review in reviews if
-        #                                 any(keyword in review['content'] for keyword in keywords_application)]
-        filtered_reviews_driver = [review for review in reviews if
-                                   any(keyword in review['content'] for keyword in keywords_driver)]
-        filtered_reviews_attitude = [review for review in reviews if
-                                     any(keyword in review['content'] for keyword in keywords_attitude)]
+        reviews_categorized_label = await categorizedLabel(reviews)
+        texts_unknown = [review for review in reviews_categorized_label if (
+                    review["label_application"] == 0 and review["label_driver"] == 0 and review["label_attitude"] == 0)]
 
-        # Extract texts for sentiment analysis
-        texts_application = [review['content'] for review in filtered_reviews_application]
-        texts_driver = [review['content'] for review in filtered_reviews_driver]
-        texts_attitude = [review['content'] for review in filtered_reviews_attitude]
-
+        texts_application = [review for review in reviews_categorized_label  if review["label_application"] == 1]
+        texts_driver = [review for review in reviews_categorized_label  if review["label_driver"] == 1]
+        texts_attitude = [review for review in reviews_categorized_label  if review["label_attitude"] == 1]
         # Create sentiment-analysis pipelines using GPU (if available)
+
         classifier_application = pipeline("sentiment-analysis", model=path_finetuned_phobert_application,
                                           tokenizer=tokenizer, device=device)
         classifier_driver = pipeline("sentiment-analysis", model=path_finetuned_phobert_driver, tokenizer=tokenizer,
                                      device=device)
         classifier_attitude = pipeline("sentiment-analysis", model=path_finetuned_phobert_attitude, tokenizer=tokenizer,
                                        device=device)
+
 
         # Perform sentiment analysis asynchronously
         result_application = await run_pipeline(classifier_application, texts_application) if texts_application else []
@@ -94,32 +79,33 @@ async def classify_phobert(request: Request):
         for index, r in enumerate(result_application):
             r['sentiment'] = label_mapping.get(r['label'], "unknown")
             r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
-            r['reviewId'] = filtered_reviews_application[index]['id']
+            r['reviewId'] = reviews_categorized_label[index]['id']
             r['reviewsCategory'] = sentiment_categories.get('Application')
-            r['content'] = filtered_reviews_application[index]['content']
+            r['content'] = reviews_categorized_label[index]['content']
             print(f"Application - Index: {index}, Result: {r}")
 
         # Iterate over result_driver with index
         for index, r in enumerate(result_driver):
             r['sentiment'] = label_mapping.get(r['label'], "unknown")
             r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
-            r['reviewId'] = filtered_reviews_driver[index]['id']
+            r['reviewId'] = reviews_categorized_label[index]['id']
             r['reviewsCategory'] = sentiment_categories.get('Driver')
-            r['content'] = filtered_reviews_driver[index]['content']
+            r['content'] = reviews_categorized_label[index]['content']
             print(f"Driver - Index: {index}, Result: {r}")
 
         # Iterate over result_attitude with index
         for index, r in enumerate(result_attitude):
             r['sentiment'] = label_mapping.get(r['label'], "unknown")
             r['sentimentName'] = label_mapping_title.get(r['label'], "unknown")
-            r['reviewId'] = filtered_reviews_attitude[index]['id']
+            r['reviewId'] = reviews_categorized_label[index]['id']
             r['reviewsCategory'] = sentiment_categories.get('Attitude')
-            r['content'] = filtered_reviews_attitude[index]['content']
+            r['content'] = reviews_categorized_label[index]['content']
             print(f"Attitude - Index: {index}, Result: {r}")
         return {
             "result_application": result_application,
             "result_driver": result_driver,
-            "result_attitude": result_attitude
+            "result_attitude": result_attitude,
+            "result_unknown": texts_unknown
         }
 
     except Exception as e:

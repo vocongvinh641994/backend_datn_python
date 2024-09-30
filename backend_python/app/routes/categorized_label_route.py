@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request
+from torch.export import export
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
 
@@ -13,11 +14,16 @@ tokenizer = AutoTokenizer.from_pretrained(path_finetuned)
 model.eval()  # Set the model to evaluation mode
 @router.post("/categorized_label/")
 async def classify_phobert(request: Request):
+    data = await request.json()
+    reviews_param = data.get("reviews", [])
+    # Use categorizedLabel function
+    result = await categorizedLabel(reviews_param)
+    return result
+
+
+async def categorizedLabel(reviews_param):
     try:
-        # Parse the incoming JSON request
-        data = await request.json()
-        reviews_param = data.get("reviews", [])
-        reviews= [review["content"] for review in reviews_param]        # Validate 'reviews' field
+        reviews = [review["content"] for review in reviews_param]  # Validate 'reviews' field
         if not reviews or not isinstance(reviews, list):
             return {"error": "Invalid or missing 'reviews' field. Please provide a list of reviews."}
         # Tokenize the list of reviews
@@ -49,10 +55,8 @@ async def classify_phobert(request: Request):
             for i, label in enumerate(predicted_labels[review_idx]):
                 review_obj[label_names[i]] = int(label)
                 print(f"{label_names[i]}: {'Yes' if label == 1 else 'No'}")
-        return {
-            "result": reviews_param
-        }
+        return reviews_param
 
     except Exception as e:
         # Catch and return any exception
-        return {"error": f"An error occurred: {str(e)}"}
+        return []
