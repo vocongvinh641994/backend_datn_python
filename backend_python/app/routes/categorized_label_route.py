@@ -20,7 +20,6 @@ async def classify_phobert(request: Request):
     result = await categorizedLabel(reviews_param)
     return result
 
-
 async def categorizedLabel(reviews_param):
     try:
         reviews = [review["content"] for review in reviews_param]  # Validate 'reviews' field
@@ -50,11 +49,8 @@ async def categorizedLabel(reviews_param):
         label_names = ['label_application', 'label_attitude', 'label_driver']
         # Display predictions for each review
         for review_idx, review_obj in enumerate(reviews_param):
-            review = review_obj["content"]
-            print(f"\nReview: {review}")
             for i, label in enumerate(predicted_labels[review_idx]):
                 review_obj[label_names[i]] = int(label)
-                print(f"{label_names[i]}: {'Yes' if label == 1 else 'No'}")
         return reviews_param
 
     except Exception as e:
