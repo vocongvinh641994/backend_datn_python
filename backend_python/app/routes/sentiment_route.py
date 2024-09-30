@@ -53,13 +53,16 @@ async def classify_phobert(request: Request):
 
         # Filter reviews based on keywords
         reviews_categorized_label = await categorizedLabel(reviews)
-        texts_unknown = [review for review in reviews_categorized_label if (
+        filter_unknown = [review for review in reviews_categorized_label if (
                     review["label_application"] == 0 and review["label_driver"] == 0 and review["label_attitude"] == 0)]
 
-        texts_application = [review for review in reviews_categorized_label  if review["label_application"] == 1]
-        texts_driver = [review for review in reviews_categorized_label  if review["label_driver"] == 1]
-        texts_attitude = [review for review in reviews_categorized_label  if review["label_attitude"] == 1]
+        filter_application = [review for review in reviews_categorized_label  if review["label_application"] == 1]
+        filter_driver = [review for review in reviews_categorized_label  if review["label_driver"] == 1]
+        filter_attitude = [review for review in reviews_categorized_label  if review["label_attitude"] == 1]
         # Create sentiment-analysis pipelines using GPU (if available)
+        texts_application = [review["content"] for review in filter_application]
+        texts_driver = [review["content"] for review in filter_driver]
+        texts_attitude = [review["content"] for review in filter_attitude]
 
         classifier_application = pipeline("sentiment-analysis", model=path_finetuned_phobert_application,
                                           tokenizer=tokenizer, device=device)
@@ -105,7 +108,7 @@ async def classify_phobert(request: Request):
             "result_application": result_application,
             "result_driver": result_driver,
             "result_attitude": result_attitude,
-            "result_unknown": texts_unknown
+            "result_unknown": filter_unknown
         }
 
     except Exception as e:
