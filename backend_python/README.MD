@@ -36,7 +36,7 @@ sudo lsof -i -n -P | grep mysqld
 
 
 
- uvicorn main:app --host 10.60.10.52 --port 8086 --reload
+ uvicorn main:app --host 10.60.10.193 --port 8086 --reload
 
 
 ============== DOCKER
@@ -46,6 +46,8 @@ docker build -t reviews -f app/Dockerfile
 cd app
 docker build -t reviews .
 3. Next Steps After Fixing the Dockerfile Path
+4. docker buildx create --use
+5. docker buildx build --platform linux/amd64,linux/arm64 -t your-image:tag .
 docker build -t reviews .
 docker run -d --name reviews-container -p 8086:8086 reviews
 
@@ -53,8 +55,12 @@ docker run -d --name reviews-container -p 8086:8086 reviews
 docker logs reviews-container
 =========
 5. docker login
+6.  docker tag b6d3fdb1d170 vinhvo6494/reviews:v1.0
+
 5. docker push vinhvo6494/reviews:latest
 6. docker search vinhvo6494/reviews
 7. docker pull vinhvo6494/reviews:latest
+8. docker pull --platform linux/arm64 vinhvo6494/reviews:v4.0
 ===========
-docker run -d --name python_reviews -p 8086:8086 vinhvo6494/reviews:latest
+docker run -d --name python_reviews_1 -p 103.69.97.156:8086:8086 vinhvo6494/reviews:v2.0
+docker run -d --name python_reviews -p 103.69.97.156:8086:8086 vinhvo6494/reviews:v4.0
