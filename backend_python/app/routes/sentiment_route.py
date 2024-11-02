@@ -56,7 +56,7 @@ async def predict_list_batched(model, reviews, batch_size=32):
             outputs = model(**inputs)
 
         logits = outputs.logits
-        predictions = torch.sigmoid(logits)
+        predictions = torch.softmax(logits, dim=1)  # Apply softmax across the classes for each sample
         max_indices = torch.argmax(predictions, dim=1).tolist()
         all_preds.extend(max_indices)
     return all_preds

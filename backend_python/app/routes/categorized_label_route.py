@@ -48,7 +48,7 @@ async def categorizedLabel(reviews_param):
         predictions = torch.sigmoid(logits)
 
         # Convert predictions to binary (0 or 1)
-        predicted_labels = (predictions > 0.5).int()
+        predicted_labels = (predictions >= 0.3).int()
 
         # Label names
         label_names = ['label_application', 'label_attitude', 'label_driver']
