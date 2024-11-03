@@ -9,9 +9,9 @@ from torch.cuda.amp import autocast
 router = APIRouter()
 
 # Paths to your finetuned model directories
-path_finetuned_phobert_attitude = "app/models/phobert_models/phobert_attitude/2024_09_30_03_08_08"
-path_finetuned_phobert_driver = "app/models/phobert_models/phobert_driver/2024_09_30_02_50_39"
-path_finetuned_phobert_application = "app/models/phobert_models/phobert_application/2024_09_30_03_14_33"
+path_finetuned_phobert_attitude = "app/models/phobert_models/phobert_attitude/2024_10_31"
+path_finetuned_phobert_driver = "app/models/phobert_models/phobert_driver/2024_10_31"
+path_finetuned_phobert_application = "app/models/phobert_models/phobert_application/2024_10_31"
 
 # Tokenizer (common for all models if using same tokenizer)
 tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base")
@@ -28,7 +28,7 @@ model_application.eval()
 
 # Define label mappings
 label_mapping_title = {0: 'Negative', 1: 'Neutral', 2: 'Positive'}
-sentiment_categories = {"Application": 'application', "Attitude": 'attitude', "Driver": 'driver'}
+sentiment_categories = {"Application": 'application', "Attitude": 'attitude', "Driver": 'driver', "Operator": 'operator', "Interior": 'interior'}
 
 # Determine if GPU is available
 device = "cuda" if torch.cuda.is_available() else "cpu"

@@ -43,7 +43,7 @@ sudo lsof -i -n -P | grep mysqld
 1.	Specify the correct path to the Dockerfile
 docker build -t reviews -f app/Dockerfile 
 2. Move to the correct directory.
-cd app
+
 docker build -t reviews .
 3. Next Steps After Fixing the Dockerfile Path
 4. docker buildx create --use

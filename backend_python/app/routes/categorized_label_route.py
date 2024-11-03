@@ -4,7 +4,7 @@ import torch
 
 router = APIRouter()
 
-path_finetuned = "app/models/phobert_models/phobert_categorizedLabel/2024_09_28/"
+path_finetuned = "app/models/phobert_models/phobert_categorizedLabel/2024_10_31/"
 model = AutoModelForSequenceClassification.from_pretrained(path_finetuned)
 tokenizer = AutoTokenizer.from_pretrained(path_finetuned)
 
@@ -51,7 +51,7 @@ async def categorizedLabel(reviews_param):
         predicted_labels = (predictions >= 0.3).int()
 
         # Label names
-        label_names = ['label_application', 'label_attitude', 'label_driver']
+        label_names = ['label_application', 'label_attitude', 'label_driver', 'label_operator', 'label_interior']
 
         for review_idx, review_obj in enumerate(reviews_param):
             for i, label in enumerate(predicted_labels[review_idx]):
