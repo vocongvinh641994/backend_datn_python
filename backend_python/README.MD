@@ -26,19 +26,19 @@ cd app
 
 
 
-
+============ Start local server ===========
 docker build -t phobert-fastapi-app .
-mysql -h 10.60.10.241 -u test -p
+mysql -h 10.60.10.129 -u test -p
 Doantotnghiep@123
 
 //Check ip address enabled
-sudo lsof -i -n -P | grep mysqld
+sudo lsof -i -n -P | grep mysqldb
 
 
 
- uvicorn main:app --host 10.60.10.174 --port 8086 --reload
+ uvicorn main:app --host 10.60.10.194 --port 8086 --reload
 
-
+============== end ==========
 ============== DOCKER
 1.	Specify the correct path to the Dockerfile
 docker build -t reviews -f app/Dockerfile 
@@ -49,7 +49,7 @@ docker build -t reviews .
 4. docker buildx create --use
 5. docker buildx build --platform linux/amd64,linux/arm64 -t your-image:tag .
 docker build -t reviews .
-docker run -d --name reviews-container -p 8086:8086 reviews
+docker run -d --name reviews-container -p 8086:r8086 reviews
 
 4. logs
 docker logs reviews-container

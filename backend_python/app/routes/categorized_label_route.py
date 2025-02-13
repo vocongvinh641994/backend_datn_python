@@ -4,7 +4,7 @@ import torch
 
 router = APIRouter()
 
-path_finetuned = "app/models/phobert_models/phobert_categorizedLabel/2024_10_31/"
+path_finetuned = "app/models/phobert_models/phobert_category/2025_02_03/"
 model = AutoModelForSequenceClassification.from_pretrained(path_finetuned)
 tokenizer = AutoTokenizer.from_pretrained(path_finetuned)
 
@@ -21,10 +21,10 @@ if torch.cuda.is_available():
 async def classify_phobert(request: Request):
     data = await request.json()
     reviews_param = data.get("reviews", [])
-    result = await categorizedLabel(reviews_param)
+    result = await categorized_label(reviews_param)
     return result
 
-async def categorizedLabel(reviews_param):
+async def categorized_label(reviews_param):
     try:
         reviews = [review["content"] for review in reviews_param]
         if not reviews or not isinstance(reviews, list):
@@ -48,7 +48,7 @@ async def categorizedLabel(reviews_param):
         predictions = torch.sigmoid(logits)
 
         # Convert predictions to binary (0 or 1)
-        predicted_labels = (predictions >= 0.3).int()
+        predicted_labels = (predictions >= 0.5).int()
 
         # Label names
         label_names = ['label_application', 'label_attitude', 'label_driver', 'label_operator', 'label_interior']
@@ -56,7 +56,8 @@ async def categorizedLabel(reviews_param):
         for review_idx, review_obj in enumerate(reviews_param):
             for i, label in enumerate(predicted_labels[review_idx]):
                 review_obj[label_names[i]] = int(label)
-
+        # print(reviews_param)
+        # print(predictions)
         return reviews_param
 
     except Exception as e:
