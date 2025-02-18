@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Request
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
+from langdetect import detect
+# from deep_translator import GoogleTranslator
 
 router = APIRouter()
 
@@ -24,9 +26,24 @@ async def classify_phobert(request: Request):
     result = await categorized_label(reviews_param)
     return result
 
+# def translate_to_vietnamese(text):
+#     """Translates text to Vietnamese if it's not already in Vietnamese."""
+#     try:
+#         if detect(text) != 'vi':
+#             return GoogleTranslator(source='auto', target='vi').translate(text)
+#     except:
+#         pass  # If detection fails, return the original text
+#     return text
+#
+# def process_reviews(reviews_param):
+#     """Processes reviews: checks if they are in Vietnamese, translates if needed."""
+#     return [translate_to_vietnamese(review["content"]) for review in reviews_param]
+
+
 async def categorized_label(reviews_param):
     try:
         reviews = [review["content"] for review in reviews_param]
+
         if not reviews or not isinstance(reviews, list):
             return {"error": "Invalid or missing 'reviews' field. Please provide a list of reviews."}
 
@@ -56,8 +73,8 @@ async def categorized_label(reviews_param):
         for review_idx, review_obj in enumerate(reviews_param):
             for i, label in enumerate(predicted_labels[review_idx]):
                 review_obj[label_names[i]] = int(label)
-        # print(reviews_param)
-        # print(predictions)
+        print(reviews_param)
+        print(predictions)
         return reviews_param
 
     except Exception as e:
