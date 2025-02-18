@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
+from ..model.sentiment import sentiment_obj
 from langdetect import detect
 # from deep_translator import GoogleTranslator
 
@@ -66,15 +67,12 @@ async def categorized_label(reviews_param):
 
         # Convert predictions to binary (0 or 1)
         predicted_labels = (predictions >= 0.5).int()
-
         # Label names
-        label_names = ['label_application', 'label_attitude', 'label_driver', 'label_operator', 'label_interior']
-
         for review_idx, review_obj in enumerate(reviews_param):
+            review_obj['category'] = sentiment_obj.SENTIMENT.get(7)
             for i, label in enumerate(predicted_labels[review_idx]):
-                review_obj[label_names[i]] = int(label)
-        print(reviews_param)
-        print(predictions)
+                if int(label) > 0:
+                    review_obj['category'] = sentiment_obj.SENTIMENT.get(i, sentiment_obj.SENTIMENT.get(7))
         return reviews_param
 
     except Exception as e:

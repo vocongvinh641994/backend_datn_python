@@ -61,10 +61,8 @@ async def classify_phobert(request: Request):
         # Validate 'reviews' field
         if not reviews or not isinstance(reviews, list):
             return {"error": "Invalid or missing 'reviews' field. Please provide a list of reviews."}
-        # Categorize reviews based on labels (using an external categorizedLabel function)
-        reviews_categorized_label = await categorized_label(reviews)
         # Extract review contents for each category
-        texts = [review["content"] for review in reviews_categorized_label]
+        texts = [review["content"] for review in reviews]
         # Predict sentiment in parallel for each category
         classifier_application = await  predict_list_batched(model_evaluation, texts)
         # Assign predictions back to the original reviews for Application
@@ -72,22 +70,15 @@ async def classify_phobert(request: Request):
             sentiment = classifier_application[index]
             review['sentiment'] = sentiment
             review['sentimentName'] = label_mapping_title.get(sentiment, "unknown")
-            if 'id' in reviews_categorized_label[index]:
-                review['reviewId'] = reviews_categorized_label[index]['id']
-            review['content'] = reviews_categorized_label[index]['content']
-            category = "unknown"
-            if review["label_application"] == 1:
-                category = "application"
-            if review["label_driver"] == 1:
-                category = "driver"
-            if review["label_attitude"] == 1:
-                category = "attitude"
-            if review["label_interior"] == 1:
-                category = "interior"
-            if review["label_operator"] == 1:
-                category = "operator"
-            review["category"] = category
-        return  reviews if reviews else []
+            if 'id' in reviews[index]:
+                review['reviewId'] = reviews[index]['id']
+            review['content'] = reviews[index]['content']
+
+            # Categorize reviews based on labels (using an external categorizedLabel function)
+
+
+        reviews_categorized_label = await categorized_label(reviews)
+        return  reviews_categorized_label if reviews_categorized_label else []
     # except Exception as e:
     #     # Handle and return any exception
     #     return {"error": f"An error occurred: {str(e)}"}
