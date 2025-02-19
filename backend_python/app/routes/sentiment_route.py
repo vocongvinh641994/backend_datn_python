@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from .categorized_label_route import categorized_label
-from asyncio import gather
 from torch.cuda.amp import autocast
+from app.models.openai import openai
 
 router = APIRouter()
 
@@ -18,10 +18,6 @@ model_evaluation = AutoModelForSequenceClassification.from_pretrained(path_finet
 
 # Set models to evaluation mode
 model_evaluation.eval()
-
-# Define label mappings
-label_mapping_title = {0: 'Negative', 1: 'Neutral', 2: 'Positive'}
-sentiment_categories = {"Application": 'application', "Attitude": 'attitude', "Driver": 'driver', "Operator": 'operator', "Interior": 'interior'}
 
 # Determine if GPU is available
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -58,27 +54,37 @@ async def classify_phobert(request: Request):
         # Parse the incoming JSON request
         data = await request.json()
         reviews = data.get("reviews", [])
-        # Validate 'reviews' field
-        if not reviews or not isinstance(reviews, list):
-            return {"error": "Invalid or missing 'reviews' field. Please provide a list of reviews."}
-        # Extract review contents for each category
-        texts = [review["content"] for review in reviews]
-        # Predict sentiment in parallel for each category
-        classifier_application = await  predict_list_batched(model_evaluation, texts)
-        # Assign predictions back to the original reviews for Application
-        for index, review in enumerate(reviews):
-            sentiment = classifier_application[index]
-            review['sentiment'] = sentiment
-            review['sentimentName'] = label_mapping_title.get(sentiment, "unknown")
-            if 'id' in reviews[index]:
-                review['reviewId'] = reviews[index]['id']
-            review['content'] = reviews[index]['content']
-
-            # Categorize reviews based on labels (using an external categorizedLabel function)
-
-
-        reviews_categorized_label = await categorized_label(reviews)
-        return  reviews_categorized_label if reviews_categorized_label else []
+        isOpenAI = data.get("isOpenAI", False)
+        isOpenAI = True
+        print(reviews)
+        if(isOpenAI):
+            responseOpenAI = await openai.categorize(reviews)
+            category_values = responseOpenAI["category"]  # Now you can access category
+            sentiment_values = responseOpenAI["sentiment"]  # Now you can access category
+            for index, review in enumerate(reviews):
+                sentiment = category_values[index]
+                category = category_values[index]
+                review['sentiment'] = sentiment
+                review['category'] = category
+            print(reviews)
+            return   reviews if reviews else []
+        else:
+            # Validate 'reviews' field
+            if not reviews or not isinstance(reviews, list):
+                return {"error": "Invalid or missing 'reviews' field. Please provide a list of reviews."}
+            # Extract review contents for each category
+            texts = [review["content"] for review in reviews]
+            # Predict sentiment in parallel for each category
+            classifier_application = await  predict_list_batched(model_evaluation, texts)
+            # Assign predictions back to the original reviews for Application
+            for index, review in enumerate(reviews):
+                sentiment = classifier_application[index]
+                review['sentiment'] = sentiment
+                if 'id' in reviews[index]:
+                    review['reviewId'] = reviews[index]['id']
+                # Categorize reviews based on labels (using an external categorizedLabel function)
+            reviews_categorized_label = await categorized_label(reviews)
+            return  reviews_categorized_label if reviews_categorized_label else []
     # except Exception as e:
     #     # Handle and return any exception
     #     return {"error": f"An error occurred: {str(e)}"}
