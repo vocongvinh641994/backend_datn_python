@@ -1,10 +1,21 @@
+
+UNKNOWN = -1
+APPLICATION = 0
+DRIVER = 1
+OPERATOR = 2
+APPLICATION_DRIVER = 3
+APPLICATION_OPERATOR = 4
+DRIVER_OPERATOR = 5
+APPLICATION_DRIVER_OPERATOR = 6
 SENTIMENT = {
-    0: "application",
-    1: "driver",
-    2: "operator",
-    3: "application_driver",
-    4: "application_operator",
-    5: "driver_operator",
-    6: "application_driver_operator",
-    7: "unknown",
+    UNKNOWN: "unknown",
+    APPLICATION: "application",
+    DRIVER: "driver",
+    OPERATOR: "operator",
+    APPLICATION_DRIVER: "application_driver",
+    APPLICATION_OPERATOR: "application_operator",
+    DRIVER_OPERATOR: "driver_operator",
+    APPLICATION_DRIVER_OPERATOR: "application_driver_operator",
 }
+
+

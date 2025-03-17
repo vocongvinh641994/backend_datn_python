@@ -4,6 +4,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from .categorized_label_route import categorized_label
 from torch.cuda.amp import autocast
 from app.models.openai import openai
+from app.model.sentiment import sentiment_obj
 
 router = APIRouter()
 
@@ -41,49 +42,88 @@ async def predict_list_batched(model, reviews, batch_size=32):
         # Use mixed precision if possible
         with autocast(), torch.no_grad():
             outputs = model(**inputs)
-
         logits = outputs.logits
+
         predictions = torch.softmax(logits, dim=1)  # Apply softmax across the classes for each sample
-        max_indices = torch.argmax(predictions, dim=1).tolist()
-        all_preds.extend(max_indices)
+
+        # Get the column index of the max value in each row
+        max_positions = logits.argmax(dim=1).tolist()
+
+        # Collect predictions instead of printing
+        all_preds.extend(max_positions)
     return all_preds
 
-@router.post("/classify_phobert/")
-async def classify_phobert(request: Request):
+def get_category(application, driver, operator):
+    if application>0 and driver > 0 and operator >0:
+        return sentiment_obj.APPLICATION_DRIVER_OPERATOR
+    if driver>0 and operator >0:
+        return sentiment_obj.DRIVER_OPERATOR
+    if application>0 and operator>0:
+        return sentiment_obj.APPLICATION_OPERATOR
+    if application>0 and driver>0:
+        return sentiment_obj.APPLICATION_DRIVER
+    if operator>0:
+        return sentiment_obj.OPERATOR
+    if driver>0:
+        return sentiment_obj.DRIVER
+    if application>0:
+        return sentiment_obj.APPLICATION
+    return sentiment_obj.UNKNOWN
+
+@router.post("/classify/")
+async def classify(request: Request):
     # try:
         # Parse the incoming JSON request
         data = await request.json()
         reviews = data.get("reviews", [])
         isOpenAI = data.get("isOpenAI", False)
-        isOpenAI = True
-        print(reviews)
         if(isOpenAI):
             responseOpenAI = await openai.categorize(reviews)
-            category_values = responseOpenAI["category"]  # Now you can access category
-            sentiment_values = responseOpenAI["sentiment"]  # Now you can access category
             for index, review in enumerate(reviews):
-                sentiment = category_values[index]
-                category = category_values[index]
-                review['sentiment'] = sentiment
+                sentiment_obj = responseOpenAI[index]
+                application = sentiment_obj['application']
+                driver = sentiment_obj['driver']
+                operator = sentiment_obj['operator']
+                category = get_category(application, driver, operator)
+                review['application_sentiment'] = sentiment_obj['application_sentiment']
+                review['driver_sentiment'] = sentiment_obj['driver_sentiment']
+                review['operator_sentiment'] = sentiment_obj['operator_sentiment']
                 review['category'] = category
-            print(reviews)
+
+            # [{'id': 1206, 'application': 1, 'driver': 1, 'operator': 1, 'application_sentiment': 2,
+            #  'driver_sentiment': 2, 'operator_sentiment': 2}]
+
             return   reviews if reviews else []
         else:
             # Validate 'reviews' field
             if not reviews or not isinstance(reviews, list):
                 return {"error": "Invalid or missing 'reviews' field. Please provide a list of reviews."}
+                # Categorize reviews based on labels (using an external categorizedLabel function)
+            reviews_categorized_label = await categorized_label(reviews)
+
             # Extract review contents for each category
             texts = [review["content"] for review in reviews]
             # Predict sentiment in parallel for each category
             classifier_application = await  predict_list_batched(model_evaluation, texts)
+            # ✅ Print once after getting predictions
             # Assign predictions back to the original reviews for Application
-            for index, review in enumerate(reviews):
+            for index, review in enumerate(reviews_categorized_label):
                 sentiment = classifier_application[index]
-                review['sentiment'] = sentiment
+                if review['application'] == 1:
+                    review['application_sentiment'] = sentiment
+                if review['driver'] == 1:
+                    review['driver_sentiment'] = sentiment
+                if review['operator'] == 1:
+                    review['operator_sentiment'] = sentiment
                 if 'id' in reviews[index]:
                     review['reviewId'] = reviews[index]['id']
-                # Categorize reviews based on labels (using an external categorizedLabel function)
-            reviews_categorized_label = await categorized_label(reviews)
+                category = get_category(review['application'], review['driver'], review['operator'])
+                review['category'] = category
+
+            print("111111111:")
+            print(reviews_categorized_label)
+            print("222222222:")
+
             return  reviews_categorized_label if reviews_categorized_label else []
     # except Exception as e:
     #     # Handle and return any exception

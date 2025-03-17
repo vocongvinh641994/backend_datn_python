@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request
+from sympy.strategies.core import switch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
 from ..model.sentiment import sentiment_obj
@@ -42,7 +43,7 @@ async def classify_phobert(request: Request):
 
 
 async def categorized_label(reviews_param):
-    try:
+    # try:
         reviews = [review["content"] for review in reviews_param]
 
         if not reviews or not isinstance(reviews, list):
@@ -67,13 +68,40 @@ async def categorized_label(reviews_param):
 
         # Convert predictions to binary (0 or 1)
         predicted_labels = (predictions >= 0.5).int()
+
         # Label names
         for review_idx, review_obj in enumerate(reviews_param):
-            review_obj['category'] = sentiment_obj.SENTIMENT.get(7)
-            for i, label in enumerate(predicted_labels[review_idx]):
-                if int(label) > 0:
-                    review_obj['category'] = sentiment_obj.SENTIMENT.get(i, sentiment_obj.SENTIMENT.get(7))
-        return reviews_param
+            predictionsCategories = predicted_labels[review_idx].tolist()
+            review_obj['application'] = predictionsCategories[0]
+            review_obj['driver'] = predictionsCategories[1]
+            review_obj['operator'] = predictionsCategories[2]
+            review_obj['application_sentiment'] = -1
+            review_obj['driver_sentiment'] = -1
+            review_obj['operator_sentiment'] = -1
+            if predictionsCategories[3] == 1:
+                review_obj['application'] = 1
+                review_obj['driver'] = 1
+                review_obj['operator'] = 0
 
-    except Exception as e:
-        return {"error": str(e)}
+            if predictionsCategories[4] == 1:
+                review_obj['application'] = 1
+                review_obj['driver'] = 0
+                review_obj['operator'] = 1
+
+
+            if predictionsCategories[5] == 1:
+                review_obj['application'] = 0
+                review_obj['driver'] = 1
+                review_obj['operator'] = 1
+
+
+            if predictionsCategories[7] == 1:
+                review_obj['application'] = 0
+                review_obj['driver'] = 0
+                review_obj['operator'] = 0
+            elif predictionsCategories[6] == 1:
+                review_obj['application'] = 1
+                review_obj['driver'] = 1
+                review_obj['operator'] = 1
+
+        return reviews_param
