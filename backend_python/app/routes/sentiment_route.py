@@ -36,8 +36,16 @@ async def predict_list_batched(model, reviews, batch_size=32):
             return_tensors="pt",
             padding=True,
             truncation=True,
-            max_length=128
+            max_length=256
         ).to(device)
+
+        # with torch.no_grad():
+        #     outputs = model(**inputs)
+        #
+        # # Get raw logits and apply sigmoid activation
+        # logits = outputs.logits
+        # predictions = torch.sigmoid(logits)
+        # print(predictions)
 
         # Use mixed precision if possible
         with autocast(), torch.no_grad():
@@ -45,12 +53,17 @@ async def predict_list_batched(model, reviews, batch_size=32):
         logits = outputs.logits
 
         predictions = torch.softmax(logits, dim=1)  # Apply softmax across the classes for each sample
-
+        print("1111111111111")
+        print(logits)
+        print("22222222222222")
         # Get the column index of the max value in each row
         max_positions = logits.argmax(dim=1).tolist()
 
         # Collect predictions instead of printing
         all_preds.extend(max_positions)
+        print("3333333333333")
+        print(predictions)
+        print("44444444444")
     return all_preds
 
 def get_category(application, driver, operator):
@@ -105,6 +118,7 @@ async def classify(request: Request):
             texts = [review["content"] for review in reviews]
             # Predict sentiment in parallel for each category
             classifier_application = await  predict_list_batched(model_evaluation, texts)
+
             # ✅ Print once after getting predictions
             # Assign predictions back to the original reviews for Application
             for index, review in enumerate(reviews_categorized_label):
@@ -119,10 +133,6 @@ async def classify(request: Request):
                     review['reviewId'] = reviews[index]['id']
                 category = get_category(review['application'], review['driver'], review['operator'])
                 review['category'] = category
-
-            print("111111111:")
-            print(reviews_categorized_label)
-            print("222222222:")
 
             return  reviews_categorized_label if reviews_categorized_label else []
     # except Exception as e:

@@ -36,7 +36,7 @@ sudo lsof -i -n -P | grep mysqldb
 
 
 
- uvicorn main:app --host 10.60.10.202 --port 8086 --reload
+ uvicorn main:app --host 10.60.10.169 --port 8086 --reload
 
 ============== end ==========
 ============== DOCKER
